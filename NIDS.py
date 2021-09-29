@@ -76,6 +76,9 @@ def detect_portscan(netflow_data):
     count = 0
     bad = 0
     notBad = 0
+
+     
+
     for row in netflow_data:
         protocol = row.get("Protocol")
         port = row.get("Dst port")
@@ -141,31 +144,61 @@ def detect_malicious_hosts(netflow_data, synonly_knownbad, synonly_NOTknownbad,
     num_benign_hosts = 0       # default value
     num_questionable_hosts = 0 # default value
     
+    malicious_ips = set()
+    normal = set()
+
+    #Find the set of all external hosts (IP addresses) that sent SYN-only or known-bad-port flows.
+    #We will call these the "malicious hosts"
     for flow in synonly_knownbad:
         src_add = flow.get("Src IP addr")
         internal_ip = is_internal_IP(src_add)
         if(internal_ip == False):
-            num_malicious_hosts = num_malicious_hosts + 1
+            #num_malicious_hosts = num_malicious_hosts + 1
+            malicious_ips.add(src_add)
+            #print(ips)
     for flow in other_knownbad:
         src_add = flow.get("Src IP addr")
         internal_ip = is_internal_IP(src_add)
         if(internal_ip == False):
-            num_malicious_hosts = num_malicious_hosts + 1
+            #num_malicious_hosts = num_malicious_hosts + 1
+            malicious_ips.add(src_add)
     for flow in synonly_NOTknownbad:
         src_add = flow.get("Src IP addr")
         internal_ip = is_internal_IP(src_add)
         if(internal_ip == False):
-            num_benign_hosts = num_benign_hosts + 1
+            #num_benign_hosts = num_benign_hosts + 1
+            #num_malicious_hosts = num_malicious_hosts + 1
+            malicious_ips.add(src_add)
+    #Find the set of all external hosts that sent non-SYN-only flows to NOT known bad ports. We will call these the "benign hosts"
     for flow in other_NOTknownbad:
         src_add = flow.get("Src IP addr")
         internal_ip = is_internal_IP(src_add)
         if(internal_ip == False):
-            num_benign_hosts = num_benign_hosts + 1
-    num_questionable_hosts = len(netflow_data) - (num_malicious_hosts+num_benign_hosts)
-    num_malicious_hosts = num_malicious_hosts - num_questionable_hosts
-    num_benign_hosts = num_benign_hosts - num_questionable_hosts
+            #num_benign_hosts = num_benign_hosts + 1
 
-                
+            normal.add(src_add)
+   
+    
+    #Find the intersection of the malicious hosts with the benign hosts. We will call this intersection the "questionable" hosts
+    
+
+    #Remove these "questionable" hosts from the "malicious hosts" and "benign hosts" sets
+    
+    questionable_hosts = malicious_ips.copy()
+
+    questionable_hosts = questionable_hosts.intersection(normal)
+
+    num_questionable_hosts = len(questionable_hosts)
+
+
+    normal.difference_update(questionable_hosts)
+    num_benign_hosts = len(normal)
+    malicious_ips.difference_update(questionable_hosts)
+    num_malicious_hosts = len(malicious_ips)
+    
+
+
+    
     # Do not change these print statments
     print("Number of malicious hosts: {} -> {}".format(
         num_malicious_hosts, test_num_malicious_hosts(num_malicious_hosts)))
