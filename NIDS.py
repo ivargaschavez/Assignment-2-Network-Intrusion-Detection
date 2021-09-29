@@ -34,22 +34,33 @@ def plot_bro(num_blocked_hosts):
     plt.grid()
     plt.savefig("sensitivity_curve.png")
 
+def syn_only_helper(rows):
+    flags = rows.get("Flags")
+    protocol = rows.get("Protocol")
+    if (protocol == "TCP") and (flags.find("A") == -1) and (flags.find("S") != -1):
+        return True
+    else:
+        return False
 
 def detect_syn_scan(netflow_data):
     """TODO: Complete this function as described in readme.txt"""
-    
+    count = 0
+    count1 = 0
     # Your code here
     percent_synonly = 0 # default value
-
+    for row in netflow_data:
+        count1 = count1 + 1
+        if(syn_only_helper(row) == True):
+            count = count + 1
+    percent_synonly = (count/count1)*100
     # Do not change this print statement
     print("\nPercent SYN-only flows: {} -> {}\n".format(
         percent_synonly, test_percent_synonly(percent_synonly)))
 
-
+    
 def detect_portscan(netflow_data):
     """TODO: Complete this function as described in readme.txt"""
-
-    # Your code here
+     # Your code here
     synonly_knownbad = []           # default value
     synonly_NOTknownbad = []        # default value
     other_knownbad = []             # default value      
@@ -58,6 +69,29 @@ def detect_portscan(netflow_data):
     percent_knownbad = 0            # default value
     percent_synonly_knownbad = 0    # default value
     percent_synonly_NOTknownbad = 0 # default value
+    for row in netflow_data:
+        port = row.get("Dst port")
+        # check if it's SYN-only flow
+        if (syn_only_helper(row) == True):
+            # if it's a bad port
+            if port == "135" or port == "139" or port == "445" or port == "1433":
+                synonly_knownbad.append(row)
+            else:
+                synonly_NOTknownbad.append(row)
+        # if it's not a SYN-only flow
+        else:
+            # if it's a bad port
+            if port == "135" or port == "139" or port == "445" or port == "1433":
+                other_knownbad.append(row)
+            else:
+                other_NOTknownbad.append(row)
+    total = len(netflow_data)
+    percent_knownbad = ((len(synonly_knownbad)+len(other_knownbad))/total)*100
+    percent_synonly_knownbad = (len(synonly_knownbad)/total)*100
+    percent_synonly_NOTknownbad = (len(synonly_NOTknownbad)/total)*100
+
+
+
 
     # Do not change these statments
     print("Precent of TCP flows to known bad ports: {} -> {}".format(
@@ -77,7 +111,32 @@ def detect_malicious_hosts(netflow_data, synonly_knownbad, synonly_NOTknownbad,
     num_malicious_hosts = 0    # default value
     num_benign_hosts = 0       # default value
     num_questionable_hosts = 0 # default value
- 
+    
+    for flow in synonly_knownbad:
+        src_add = flow.get("Src IP addr")
+        internal_ip = is_internal_IP(src_add)
+        if(internal_ip == False):
+            num_malicious_hosts = num_malicious_hosts + 1
+    for flow in other_knownbad:
+        src_add = flow.get("Src IP addr")
+        internal_ip = is_internal_IP(src_add)
+        if(internal_ip == False):
+            num_malicious_hosts = num_malicious_hosts + 1
+    for flow in synonly_NOTknownbad:
+        src_add = flow.get("Src IP addr")
+        internal_ip = is_internal_IP(src_add)
+        if(internal_ip == False):
+            num_benign_hosts = num_benign_hosts + 1
+    for flow in other_NOTknownbad:
+        src_add = flow.get("Src IP addr")
+        internal_ip = is_internal_IP(src_add)
+        if(internal_ip == False):
+            num_benign_hosts = num_benign_hosts + 1
+    num_questionable_hosts = len(netflow_data) - (num_malicious_hosts+num_benign_hosts)
+    num_malicious_hosts = num_malicious_hosts - num_questionable_hosts
+    num_benign_hosts = num_benign_hosts - num_questionable_hosts
+
+                
     # Do not change these print statments
     print("Number of malicious hosts: {} -> {}".format(
         num_malicious_hosts, test_num_malicious_hosts(num_malicious_hosts)))
@@ -108,8 +167,9 @@ class Bro:
                  or fields to the Bro class"""
         blocked_hosts = set()
 
-        for flow in netflow_data: # loop simulates an "online" algorithm 
+        #for flow in netflow_data: # loop simulates an "online" algorithm 
             # Your code here
+
 
         # Do not change this return statement
         return blocked_hosts
