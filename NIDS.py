@@ -38,11 +38,9 @@ def syn_only_helper(rows):
     flags = rows.get("Flags")
     protocol = rows.get("Protocol")
     if (protocol == "TCP") and (flags.find("A") == -1) and (flags.find("S") != -1):
-        #print(flags)
         return True
     else:
-        # print(protocol)
-        #print(flags)
+        
         return False
 
 def detect_syn_scan(netflow_data):
@@ -75,25 +73,33 @@ def detect_portscan(netflow_data):
     percent_knownbad = 0            # default value
     percent_synonly_knownbad = 0    # default value
     percent_synonly_NOTknownbad = 0 # default value
+    count = 0
     for row in netflow_data:
+        protocol = row.get("Protocol")
         port = row.get("Dst port")
         # check if it's SYN-only flow
-        if (syn_only_helper(row) == True):
-            # if it's a bad port
-            if port == "135" or port == "139" or port == "445" or port == "1433":
-                synonly_knownbad.append(row)
+        if protocol == "TCP":
+            count = count + 1
+            if (syn_only_helper(row) == True):
+                # if it's a bad port
+                if port == "135" or port == "139" or port == "445" or port == "1433":
+                    synonly_knownbad.append(row)
+                else:
+                    synonly_NOTknownbad.append(row)
+            # if it's not a SYN-only flow
             else:
-                synonly_NOTknownbad.append(row)
-        # if it's not a SYN-only flow
-        else:
-            # if it's a bad port
-            if port == "135" or port == "139" or port == "445" or port == "1433":
-                other_knownbad.append(row)
-            else:
-                other_NOTknownbad.append(row)
-    total = len(netflow_data)
+                # if it's a bad port
+                if port == "135" or port == "139" or port == "445" or port == "1433":
+                    other_knownbad.append(row)
+                else:
+                    other_NOTknownbad.append(row)
+    #total = len(netflow_data)
+    total = count
+    #Precent of flows to known bad ports (135, 139, 445, and 1433) out of all TCP flows
     percent_knownbad = ((len(synonly_knownbad)+len(other_knownbad))/total)*100
+    #Percent of SYN-only flows out of all TCP flows to known bad ports
     percent_synonly_knownbad = (len(synonly_knownbad)/total)*100
+    #Percent of SYN-only flows out of all TCP flows to NOT known bad ports
     percent_synonly_NOTknownbad = (len(synonly_NOTknownbad)/total)*100
 
 
