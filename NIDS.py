@@ -38,8 +38,11 @@ def syn_only_helper(rows):
     flags = rows.get("Flags")
     protocol = rows.get("Protocol")
     if (protocol == "TCP") and (flags.find("A") == -1) and (flags.find("S") != -1):
+        #print(flags)
         return True
     else:
+        # print(protocol)
+        #print(flags)
         return False
 
 def detect_syn_scan(netflow_data):
@@ -49,10 +52,13 @@ def detect_syn_scan(netflow_data):
     # Your code here
     percent_synonly = 0 # default value
     for row in netflow_data:
-        count1 = count1 + 1
-        if(syn_only_helper(row) == True):
-            count = count + 1
+        protocol = row.get("Protocol")
+        if (protocol == "TCP"):
+            count1 = count1 + 1
+            if(syn_only_helper(row) == True):
+                count = count + 1
     percent_synonly = (count/count1)*100
+    #print(count/len(netflow_data)*100)
     # Do not change this print statement
     print("\nPercent SYN-only flows: {} -> {}\n".format(
         percent_synonly, test_percent_synonly(percent_synonly)))
