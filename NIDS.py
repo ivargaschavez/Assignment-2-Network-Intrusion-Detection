@@ -228,9 +228,58 @@ class Bro:
                  set of blocked hosts. You may add additional helper methods 
                  or fields to the Bro class"""
         blocked_hosts = set()
+        ip_addr = {}
+        
+        for flow in netflow_data: # loop simulates an "online" algorithm 
+            src_ip = flow.get("Src IP addr")
+            internal_ip = is_internal_IP(src_ip)
+            #for each external
+            if(internal_ip == False):
+                flags = flow.get("Flags")
+                protocol = flow.get("Protocol")
+                port = flow.get("Dst port")
+                dest_ip = flow.get("Dst IP addr")
 
-        #for flow in netflow_data: # loop simulates an "online" algorithm 
-            # Your code here
+                if protocol == "TCP":
+                    #check for S but no A
+                    if (flags.find("A") == -1) and (flags.find("S") != -1):
+                        #fail_good
+                        if port in self.good_services:
+                            key = ip_addr.get(src_ip, -1)
+                            # source ip is not a key
+                            if key == -1:
+                                ip_addr.update({src_ip: [dest_ip]})
+                            # source ip is already a key
+                            else:
+                                value = ip_addr.get(src_ip)
+                                if dest_ip not in value:
+                                    value.append(dest_ip)
+                                    ip_addr[src_ip] = value
+                if protocol == "TCP":
+                    #sucessful or failed
+                    if ((flags.find("A") != -1) and (flags.find("S") == -1))or((flags.find("A") == -1) and (flags.find("S") != -1)):
+                        if port not in self.good_services:
+
+                            key = ip_addr.get(src_ip, -1)
+                            # source ip is not a key
+                            if key == -1:
+                                ip_addr.update({src_ip: [dest_ip]})
+                            # source ip is already a key
+                            else:
+                                value = ip_addr.get(src_ip)
+                                if dest_ip not in value:
+                                    value.append(dest_ip)
+                                    ip_addr[src_ip] = value
+        for key in ip_addr:
+            value = ip_addr.get(key)
+            if len(value) > self.T:
+                blocked_hosts.add(key)
+        
+
+
+                        
+
+        print(len(blocked_hosts))
 
 
         # Do not change this return statement
